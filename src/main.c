@@ -6,6 +6,8 @@
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 
+#include "bma423_registers.h"
+
 #define MOTOR_PIN             4
 #define INFRARED_PIN          13
 
@@ -22,9 +24,6 @@
 #define ACK_CHECK_DIS 0x0                       /*!< I2C master will not check ack from slave */
 #define ACK_VAL 0x0                             /*!< I2C ack value */
 #define NACK_VAL 0x1                            /*!< I2C nack value */
-
-#define BMA4_SENSOR_ADDR    0x19
-#define BMA4_CHIP_ID_ADDR     0x00
 
 /**
  * @brief i2c master initialization
@@ -74,27 +73,27 @@ static esp_err_t i2c_master_sensor_test(i2c_port_t i2c_num, uint8_t slave_addr, 
   uint8_t data=0;
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, BMA4_SENSOR_ADDR << 1 | WRITE_BIT, ACK_CHECK_EN);
-  i2c_master_write_byte(cmd, BMA4_CHIP_ID_ADDR, ACK_CHECK_EN);
+  i2c_master_write_byte(cmd, slave_addr << 1 | WRITE_BIT, ACK_CHECK_EN);
+  i2c_master_write_byte(cmd, reg_addr, ACK_CHECK_EN);
   i2c_master_stop(cmd);
-  ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+  ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
   i2c_cmd_link_delete(cmd);
   //printf("[%s] i2c first block complete\n", esp_err_to_name(ret));
 
   cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
-  i2c_master_write_byte(cmd, BMA4_SENSOR_ADDR << 1 | READ_BIT, ACK_CHECK_EN);
+  i2c_master_write_byte(cmd, slave_addr << 1 | READ_BIT, ACK_CHECK_EN);
   i2c_master_read_byte(cmd, &data, ACK_CHECK_EN);
   i2c_master_stop(cmd);
-  ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+  ret = i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_RATE_MS);
   i2c_cmd_link_delete(cmd);
   //printf("[%s] i2c second block complete\n", esp_err_to_name(ret));
   printf("data from sensor: 0x%02x\n", data);
   if(data == 0x13)
   {
-    printf("BMA423 at address 0x%02x is working!\n", BMA4_SENSOR_ADDR);
+    printf("BMA423 at address 0x%02x is working!\n", slave_addr);
   } else {
-    printf("Could not connect to 0x%02x\n", BMA4_SENSOR_ADDR);
+    printf("Could not connect to 0x%02x\n", slave_addr);
   }
   return ret;
 }
@@ -132,7 +131,7 @@ void app_main(void) {
 
   scan_i2c_devices();  
 
-  i2c_master_sensor_test(I2C_NUM_0, BMA4_SENSOR_ADDR, BMA4_CHIP_ID_ADDR);
+  i2c_master_sensor_test(I2C_PORT_NUMBER, BMA423_ADDR, BMA423_CHIP_ID);
 
   gpio_reset_pin(MOTOR_PIN);
   gpio_reset_pin(INFRARED_PIN);
